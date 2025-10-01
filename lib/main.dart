@@ -1,23 +1,30 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:portable_wifi/home_screen.dart';
 import 'package:portable_wifi/providers/hotspot_manager_provider.dart';
 import 'package:portable_wifi/providers/location_wifi_provider.dart';
+import 'package:portable_wifi/services/notification.dart';
 import 'package:provider/provider.dart';
 
-void main() {
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService().init();
+
+  // The MultiProvider must be here, at the top level, before runApp.
   runApp(
-     MultiProvider(
+    MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => LocationWiFiProvider()),
-     //   ChangeNotifierProvider(create: (context) => HotspotManagerProvider()), // Add the new one
+        ChangeNotifierProvider(create: (context) => HotspotManagerProvider()),
       ],
-      child: const MyApp(),
+      child: const WifiAnalyserApp(),
     ),
   );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class WifiAnalyserApp extends StatelessWidget {
+  const WifiAnalyserApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -25,10 +32,10 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Wifi Analyser',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
         brightness: Brightness.dark,
+        primarySwatch: Colors.blue,
       ),
-      home: HomeScreen(),
+      home: const HomeScreen(),
     );
   }
 }

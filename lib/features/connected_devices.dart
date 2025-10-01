@@ -1,72 +1,120 @@
-import 'dart:async';
+// lib/features/connected_devices_screen.dart
 import 'package:flutter/material.dart';
-import 'package:network_info_plus/network_info_plus.dart';
-import 'package:ping_discover_network_forked/ping_discover_network_forked.dart';
+import 'package:flutter_nsd/flutter_nsd.dart';
+import 'dart:async';
 
 class ConnectedDevicesScreen extends StatefulWidget {
   const ConnectedDevicesScreen({super.key});
 
   @override
-  _ConnectedDevicesScreenState createState() => _ConnectedDevicesScreenState();
+  State<ConnectedDevicesScreen> createState() => _ConnectedDevicesScreenState();
 }
 
 class _ConnectedDevicesScreenState extends State<ConnectedDevicesScreen> {
-  List<String> _foundDevices = [];
+  final FlutterNsd _flutterNsd = FlutterNsd();
+  final List<NsdServiceInfo> _services = [];
   bool _isScanning = false;
+  // A common service type for finding many network devices.
+  static const String _serviceType = '_http._tcp';
 
-  Future<void> _scanNetwork() async {
-    setState(() {
-      _isScanning = true;
-      _foundDevices.clear();
-    });
+  @override
+  void initState() {
+    super.initState();
+    _startDiscovery();
+  }
 
-    final ip = await NetworkInfo().getWifiIP();
-    if (ip == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Not connected to Wi-Fi")));
-      setState(() => _isScanning = false);
+  @override
+  void dispose() {
+    if (_isScanning) {
+      _flutterNsd.stopDiscovery();
+    }
+    super.dispose();
+  }
+
+  Future<void> _startDiscovery() async {
+    if (_isScanning) {
       return;
     }
 
-    final String subnet = ip.substring(0, ip.lastIndexOf('.'));
-    const port = 80; // Common port to check
+    setState(() {
+      _services.clear();
+      _isScanning = true;
+    });
 
-    final stream = NetworkAnalyzer.discover(subnet, port);
-
-    stream
-        .listen((NetworkAddress addr) {
-          if (addr.exists) {
+    try {
+      await _flutterNsd.discoverServices(_serviceType);
+      _flutterNsd.stream.listen(
+        (NsdServiceInfo service) {
+          if (mounted && !_services.any((s) => s.name == service.name)) {
             setState(() {
-              _foundDevices.add(addr.ip);
+              _services.add(service);
             });
           }
-        })
-        .onDone(() {
-          setState(() => _isScanning = false);
-        });
+        },
+        onError: (e) {
+          if (mounted) {
+            setState(() => _isScanning = false);
+            print('Discovery error: $e');
+          }
+        },
+        onDone: () {
+          if (mounted) {
+            setState(() => _isScanning = false);
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isScanning = false);
+        print('Error starting discovery: $e');
+      }
+    }
+  }
+
+  void _stopDiscovery() {
+    if (_isScanning) {
+      _flutterNsd.stopDiscovery();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Connected Devices"),
+        title: const Text('Network Devices'),
         actions: [
-          IconButton(
-            icon: Icon(_isScanning ? Icons.stop : Icons.search),
-            onPressed: _isScanning ? null : _scanNetwork,
+          TextButton(
+            onPressed: _isScanning ? _stopDiscovery : _startDiscovery,
+            child: Text(
+              _isScanning ? 'STOP' : 'SCAN',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          )
+        ],
+      ),
+      body: Column(
+        children: [
+          if (_isScanning) const LinearProgressIndicator(),
+          Expanded(
+            child: _services.isEmpty && !_isScanning
+                ? const Center(
+                    child: Text('No devices found. Try starting a scan.'),
+                  )
+                : ListView.builder(
+                    itemCount: _services.length,
+                    itemBuilder: (context, index) {
+                      final service = _services[index];
+                      return ListTile(
+                        leading: const Icon(Icons.device_hub_rounded, size: 32),
+                        title: Text(service.name ?? 'Unknown Device'),
+                        // --- THIS IS THE CORRECTED PROPERTY NAME ---
+                        subtitle: Text('${service.hostname}:${service.port}'),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
-      body: _isScanning
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: _foundDevices.length,
-              itemBuilder: (context, index) {
-                return ListTile(title: Text(_foundDevices[index]));
-              },
-            ),
     );
   }
 }
