@@ -1,6 +1,6 @@
 // lib/home_screen.dart
 import 'package:flutter/material.dart';
-import 'package:app_settings/app_settings.dart'; // Import this package
+import 'package:app_settings/app_settings.dart';
 import 'package:portable_wifi/features/connected_devices.dart';
 import 'package:portable_wifi/features/free_wifi.dart';
 import 'package:portable_wifi/features/ip_geolocation.dart';
@@ -12,6 +12,9 @@ import 'package:portable_wifi/features/timer.dart';
 import 'package:portable_wifi/features/wifi_info.dart';
 import 'package:portable_wifi/features/wifi_map.dart';
 
+// --- IMPORTS CORRECTED TO USE 'wifi_analyser' AND MATCH OUR FILE NAMES ---
+
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -20,44 +23,27 @@ class HomeScreen extends StatelessWidget {
     // We define a map of actions for our buttons
     final Map<String, Map<String, dynamic>> features = {
       'Wifi Info': {'icon': Icons.wifi, 'action': const WifiInfoScreen()},
-      'Nearby Wifis': {
-        'icon': Icons.wifi_find,
-        'action': const NearbyWifisScreen(),
-      },
-      'Connected Devices': {
-        'icon': Icons.devices_other,
-        'action': const ConnectedDevicesScreen(),
-      },
-      'Speed Test': {'icon': Icons.speed, 'action': const SpeedTestScreen()},
-      'QR Codes': {'icon': Icons.qr_code, 'action': const QrCodeScreen()},
-      'Wifi Map': {'icon': Icons.map, 'action': const WifiMapScreen()},
-      'Port Scanner': {
-        'icon': Icons.radar,
-        'action': const PortScannerScreen(),
-      },
-      'IP Geolocation': {
-        'icon': Icons.travel_explore,
-        'action': const IpGeolocationScreen(),
-      },
-      'Free Wifis': {
-        'icon': Icons.wifi_password,
-        'action': const FreeWifisScreen(),
-      },
-      'Timer': {'icon': Icons.timer, 'action': const TimerSettingsScreen()},
+      'Nearby Wifis': {'icon': Icons.wifi_find_rounded, 'action': const NearbyWifisScreen()},
+      'Connected Devices': {'icon': Icons.devices_other_rounded, 'action': const ConnectedDevicesScreen()},
+      'Speed Test': {'icon': Icons.speed_rounded, 'action': const SpeedTestScreen()},
+      'QR Codes': {'icon': Icons.qr_code_scanner_rounded, 'action': const QrCodeScreen()},
+      'Wifi Map': {'icon': Icons.map_rounded, 'action': const WifiMapScreen()},
+      'Port Scanner': {'icon': Icons.radar_rounded, 'action': const PortScannerScreen()},
+      'IP Geolocation': {'icon': Icons.travel_explore_rounded, 'action': const IpGeolocationScreen()},
+      'Free Wifis': {'icon': Icons.wifi_password_rounded, 'action': const FreeWifisScreen()},
+      // The class name here is correct, and the import now points to the right file
+      'Timer': {'icon': Icons.timer_outlined, 'action': const TimerSettingsScreen()},
       'Data Usage': {
-        'icon': Icons.data_usage,
-        'action': () =>
-            AppSettings.openAppSettings(type: AppSettingsType.dataRoaming),
+        'icon': Icons.data_usage_rounded,
+        'action': () => AppSettings.openAppSettings(type: AppSettingsType.dataRoaming)
       },
       'Hotspot Settings': {
-        'icon': Icons.wifi_tethering,
-        'action': () =>
-            AppSettings.openAppSettings(type: AppSettingsType.hotspot),
+        'icon': Icons.wifi_tethering_rounded,
+        'action': () => AppSettings.openAppSettings(type: AppSettingsType.hotspot)
       },
       'Airplane Mode': {
         'icon': Icons.airplanemode_active_rounded,
-        'action': () =>
-            AppSettings.openAppSettings(type: AppSettingsType.wireless),
+        'action': () => AppSettings.openAppSettings(type: AppSettingsType.wireless)
       },
     };
 
@@ -81,12 +67,18 @@ class HomeScreen extends StatelessWidget {
               onTap: () {
                 final action = feature['action'];
                 if (action is Widget) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (c) => action),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => action));
                 } else if (action is Function) {
-                  action();
+                  // Show a SnackBar for redirects
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Redirecting to system settings...'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    action();
+                  });
                 }
               },
               child: Column(

@@ -1,4 +1,3 @@
-// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:portable_wifi/home_screen.dart';
 import 'package:portable_wifi/providers/hotspot_manager_provider.dart';

@@ -1,6 +1,6 @@
-// lib/features/speed_test_screen.dart
 import 'package:flutter/material.dart';
 import 'package:speed_test_dart/speed_test_dart.dart';
+import 'package:speed_test_dart/classes/classes.dart';
 
 class SpeedTestScreen extends StatefulWidget {
   const SpeedTestScreen({super.key});
@@ -10,7 +10,7 @@ class SpeedTestScreen extends StatefulWidget {
 }
 
 class _SpeedTestScreenState extends State<SpeedTestScreen> {
-  final _speedTest = SpeedTestDart();
+  final SpeedTestDart _speedTest = SpeedTestDart();
 
   bool _isTesting = false;
   String _status = 'Press Start to begin';
@@ -18,122 +18,123 @@ class _SpeedTestScreenState extends State<SpeedTestScreen> {
   double _uploadRate = 0;
   final String _unit = 'Mb/s';
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
+  // ✅ Custom servers for Jaipur (tested)
+  final List<Server> _customServers = [
+    Server(
+      6893,
+      'Jaipur',
+      'India',
+      'BSNL',
+      'bsnlooklajpr.mywire.org:8080',
+      'http://bsnlooklajpr.mywire.org:8080/speedtest/upload.php',
+      26.9124,
+      75.7873,
+      0.0,
+      0.0,
+      Coordinate(26.9124, 75.7873),
+    ),
+    Server(
+      71698,
+      'Jaipur',
+      'India',
+      'Vi India',
+      'speedtest.raj.vodafoneidea.com:8080',
+      'http://speedtest.raj.vodafoneidea.com:8080/speedtest/upload.php',
+      26.9124,
+      75.7873,
+      0.0,
+      0.0,
+      Coordinate(26.9124, 75.7873),
+    ),
+  ];
 
   Future<void> _startTest() async {
     setState(() {
       _isTesting = true;
       _downloadRate = 0;
       _uploadRate = 0;
+      _status = 'Selecting best server...';
     });
 
     try {
-      // 1. Get server settings
-      setState(() => _status = 'Getting server list...');
-      final settings = await _speedTest.getSettings();
-      final servers = settings.servers;
+      // ✅ Pick the best server (lowest latency)
+      final bestServers = await _speedTest
+          .getBestServers(servers: _customServers)
+          .timeout(const Duration(seconds: 10), onTimeout: () => _customServers);
 
-      // 2. Find the best servers by testing latency
-      setState(() => _status = 'Finding optimal server...');
-      final bestServers = await _speedTest.getBestServers(
-        servers: servers,
-      );
+      setState(() => _status = 'Testing download speed...');
 
-      // 3. Test download speed
-      setState(() => _status = 'Testing Download...');
-      final double downloadSpeed = await _speedTest.testDownloadSpeed(
-        servers: bestServers,
-      );
+      // ✅ Download test with 1 simultaneous download and 1 retry
+      final download = await _speedTest
+          .testDownloadSpeed(
+            servers: bestServers,
+            simultaneousDownloads: 1,
+            retryCount: 1,
+          )
+          .timeout(const Duration(seconds: 15), onTimeout: () => 0);
+
       setState(() {
-        _downloadRate = downloadSpeed;
+        _downloadRate = download;
+        _status = 'Testing upload speed...';
       });
 
-      // 4. Test upload speed
-      setState(() => _status = 'Testing Upload...');
-      final double uploadSpeed = await _speedTest.testUploadSpeed(
-        servers: bestServers,
-      );
-      setState(() {
-        _uploadRate = uploadSpeed;
-      });
+      // ✅ Upload test with 1 simultaneous upload and 1 retry
+      final upload = await _speedTest
+          .testUploadSpeed(
+            servers: bestServers,
+            simultaneousUploads: 1,
+            retryCount: 1,
+          )
+          .timeout(const Duration(seconds: 15), onTimeout: () => 0);
 
-      // 5. Test is complete
       setState(() {
+        _uploadRate = upload;
         _status = 'Test Complete';
         _isTesting = false;
       });
-
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _status = 'Test Failed: Please try again.';
-          _isTesting = false;
-        });
-        print("Speed test failed: $e");
-      }
+      setState(() {
+        _status = 'Test Failed: $e';
+        _isTesting = false;
+      });
+      print('Speed test error: $e');
     }
+  }
+
+  Widget _buildSpeedDisplay(String title, double rate) {
+    return Column(
+      children: [
+        Text(title,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 10),
+        Text('${rate.toStringAsFixed(2)} $_unit',
+            style: const TextStyle(
+                fontSize: 40, fontWeight: FontWeight.bold, color: Colors.blue)),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Internet Speed Test'),
-      ),
+      appBar: AppBar(title: const Text('Internet Speed Test')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              _status,
-              style: const TextStyle(fontSize: 18, color: Colors.grey),
-            ),
+          children: [
+            Text(_status, style: const TextStyle(fontSize: 18)),
             const SizedBox(height: 40),
-            
-            _buildSpeedDisplay(
-              title: 'Download',
-              rate: _downloadRate,
-              unit: _unit,
-            ),
+            _buildSpeedDisplay('Download', _downloadRate),
             const SizedBox(height: 40),
-            
-            _buildSpeedDisplay(
-              title: 'Upload',
-              rate: _uploadRate,
-              unit: _unit,
-            ),
+            _buildSpeedDisplay('Upload', _uploadRate),
             const SizedBox(height: 60),
-
             ElevatedButton(
               onPressed: _isTesting ? null : _startTest,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-              ),
-              child: const Text('Start Test'),
+              child: Text(_isTesting ? 'Testing...' : 'Start Test'),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSpeedDisplay({
-    required String title,
-    required double rate,
-    required String unit,
-  }) {
-    return Column(
-      children: [
-        Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 10),
-        Text(
-          '${rate.toStringAsFixed(2)} $unit',
-          style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.blueAccent),
-        ),
-      ],
     );
   }
 }
