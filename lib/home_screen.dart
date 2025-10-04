@@ -5,6 +5,7 @@ import 'package:portable_wifi/features/connected_devices.dart';
 import 'package:portable_wifi/features/free_wifi.dart';
 import 'package:portable_wifi/features/ip_geolocation.dart';
 import 'package:portable_wifi/features/nearby_wifi.dart';
+import 'package:portable_wifi/features/password_generator.dart';
 import 'package:portable_wifi/features/port_scanner.dart';
 import 'package:portable_wifi/features/qr_code.dart';
 import 'package:portable_wifi/features/speed_test.dart';
@@ -24,7 +25,7 @@ class HomeScreen extends StatelessWidget {
     final Map<String, Map<String, dynamic>> features = {
       'Wifi Info': {'icon': Icons.wifi, 'action': const WifiInfoScreen()},
       'Nearby Wifis': {'icon': Icons.wifi_find_rounded, 'action': const NearbyWifisScreen()},
-      'Connected Devices': {'icon': Icons.devices_other_rounded, 'action': const ConnectedDevicesScreen()},
+      'Connected Devices': {'icon': Icons.devices_other_rounded, 'action': const WifiDevicesScreen()},
       'Speed Test': {'icon': Icons.speed_rounded, 'action': const SpeedTestScreen()},
       'QR Codes': {'icon': Icons.qr_code_scanner_rounded, 'action': const QrCodeScreen()},
       'Wifi Map': {'icon': Icons.map_rounded, 'action': const WifiMapScreen()},
@@ -44,6 +45,8 @@ class HomeScreen extends StatelessWidget {
       'Airplane Mode': {
         'icon': Icons.airplanemode_active_rounded,
         'action': () => AppSettings.openAppSettings(type: AppSettingsType.wireless)
+      },
+      'Password Generator': {'icon': Icons.radar_rounded, 'action': const PasswordGeneratorScreen()
       },
     };
 

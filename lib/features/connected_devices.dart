@@ -1,131 +1,81 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_nsd/flutter_nsd.dart';
-import 'package:dart_ping/dart_ping.dart'; // ✅ Add this package in pubspec.yaml
+import 'package:network_info_plus/network_info_plus.dart';
+import 'package:ping_discover_network_forked/ping_discover_network_forked.dart';
 
-class ConnectedDevicesScreen extends StatefulWidget {
-  const ConnectedDevicesScreen({super.key});
+class WifiDevicesScreen extends StatefulWidget {
+  const WifiDevicesScreen({super.key});
 
   @override
-  State<ConnectedDevicesScreen> createState() => _ConnectedDevicesScreenState();
+  State<WifiDevicesScreen> createState() => _WifiDevicesScreenState();
 }
 
-class _ConnectedDevicesScreenState extends State<ConnectedDevicesScreen> {
-  final FlutterNsd _flutterNsd = FlutterNsd();
-  final List<String> _connectedIps = [];
-  final List<NsdServiceInfo> _services = [];
-  bool _isScanning = false;
+class _WifiDevicesScreenState extends State<WifiDevicesScreen> {
+  List<String> devices = [];
+  bool isScanning = false;
 
-  static const String _serviceType = '_http._tcp';
-  final String _baseIp = '192.168.43.'; // typical hotspot subnet
+  Future<void> scanNetwork() async {
+    setState(() {
+      isScanning = true;
+      devices.clear();
+    });
+
+    final info = NetworkInfo();
+    final String? ip = await info.getWifiIP();
+
+    if (ip == null) {
+      setState(() => isScanning = false);
+      return;
+    }
+
+    final String subnet = ip.substring(0, ip.lastIndexOf('.'));
+    final stream = NetworkAnalyzer.discover2(subnet, 80, timeout: const Duration(milliseconds: 400));
+
+    stream.listen((NetworkAddress addr) {
+      if (addr.exists) {
+        setState(() {
+          devices.add(addr.ip);
+        });
+      }
+    }, onError: (e) {
+      debugPrint('Scan error: $e'); // Ignore timeouts
+    }, onDone: () {
+      setState(() {
+        isScanning = false;
+      });
+    });
+  }
 
   @override
   void initState() {
     super.initState();
-  }
-
-  @override
-  void dispose() {
-    if (_isScanning) {
-      _flutterNsd.stopDiscovery();
-    }
-    super.dispose();
-  }
-
-  // ✅ Define pingDevice inside the State class
-  Future<bool> pingDevice(String ip) async {
-    try {
-      final ping = Ping(ip, count: 1, timeout: 1);
-      final result = await ping.stream.first;
-      return result.response != null; // true if device responded
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<void> _startScan() async {
-    if (_isScanning) return;
-    setState(() {
-      _connectedIps.clear();
-      _services.clear();
-      _isScanning = true;
-    });
-
-    // 1️⃣ Start mDNS discovery
-    _flutterNsd.discoverServices(_serviceType);
-    _flutterNsd.stream.listen(
-      (NsdServiceInfo service) {
-        if (!_services.any((s) => s.name == service.name)) {
-          setState(() {
-            _services.add(service);
-          });
-        }
-      },
-      onError: (e) => print('mDNS error: $e'),
-      onDone: () {},
-    );
-
-    // 2️⃣ Scan hotspot subnet
-    for (int i = 1; i <= 20; i++) { // scan first 20 IPs
-      final ip = '$_baseIp$i';
-      if (await pingDevice(ip)) {
-        setState(() {
-          _connectedIps.add(ip);
-        });
-      }
-    }
-
-    setState(() {
-      _isScanning = false;
-    });
-  }
-
-  void _stopScan() {
-    if (_isScanning) {
-      _flutterNsd.stopDiscovery();
-      setState(() => _isScanning = false);
-    }
+    scanNetwork();
   }
 
   @override
   Widget build(BuildContext context) {
-    final combinedList = [
-      ..._connectedIps.map((ip) => {'name': 'IP Device', 'info': ip}),
-      ..._services.map((s) => {'name': s.name ?? 'Unknown', 'info': '${s.hostname}:${s.port}'}),
-    ];
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Connected Devices'),
         actions: [
-          TextButton(
-            onPressed: _isScanning ? _stopScan : _startScan,
-            child: Text(
-              _isScanning ? 'STOP' : 'SCAN',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: isScanning ? null : scanNetwork,
+          )
         ],
       ),
-      body: Column(
-        children: [
-          if (_isScanning) const LinearProgressIndicator(),
-          Expanded(
-            child: combinedList.isEmpty
-                ? const Center(child: Text('No devices found. Start a scan.'))
-                : ListView.builder(
-                    itemCount: combinedList.length,
-                    itemBuilder: (context, index) {
-                      final device = combinedList[index];
-                      return ListTile(
-                        leading: const Icon(Icons.device_hub_rounded, size: 32),
-                        title: Text(device['name']!),
-                        subtitle: Text(device['info']!),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+      body: isScanning
+          ? const Center(child: CircularProgressIndicator())
+          : devices.isEmpty
+              ? const Center(child: Text('No devices found'))
+              : ListView.builder(
+                  itemCount: devices.length,
+                  itemBuilder: (context, index) {
+                    return ListTile(
+                      leading: const Icon(Icons.devices),
+                      title: Text(devices[index]),
+                    );
+                  },
+                ),
     );
   }
 }

@@ -10,7 +10,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService().init();
 
-  // The MultiProvider must be here, at the top level, before runApp.
   runApp(
     MultiProvider(
       providers: [
